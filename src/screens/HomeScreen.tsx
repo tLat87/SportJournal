@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-// import Icon from 'react-native-vector-icons/Ionicons'; // Заменено на смайлики
 import { useAppSelector } from '../hooks/useAppSelector';
 import { useAppDispatch } from '../hooks/useAppDispatch';
 import { RootStackParamList } from '../types';
 import { Colors } from '../constants/colors';
 import SimpleAnimatedView from '../components/SimpleAnimatedView';
+import GradientButton from '../components/GradientButton';
+import AnimatedCard from '../components/AnimatedCard';
+import ProgressBar from '../components/ProgressBar';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MainTabs'>;
 
@@ -25,6 +27,9 @@ const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const dispatch = useAppDispatch();
   const { entries } = useAppSelector((state) => state.journal);
+  const { achievements, unlockedAchievements } = useAppSelector((state) => state.achievements);
+  const { goals } = useAppSelector((state) => state.goals);
+  const { unreadCount } = useAppSelector((state) => state.notifications);
 
   const today = new Date();
   const todayString = today.toLocaleDateString('en-GB', { 
@@ -38,6 +43,35 @@ const HomeScreen = () => {
   });
 
   const recentEntries = entries.slice(0, 3);
+
+  // Calculate stats
+  const totalWorkouts = entries.length;
+  const currentStreak = calculateStreak(entries);
+  const weeklyGoal = goals.find(g => g.id === 'weekly_workouts');
+  const weeklyProgress = weeklyGoal ? (weeklyGoal.currentValue / weeklyGoal.targetValue) * 100 : 0;
+
+  // Calculate streak
+  function calculateStreak(entries: any[]) {
+    if (entries.length === 0) return 0;
+    
+    const sortedEntries = entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    let streak = 0;
+    let currentDate = new Date();
+    
+    for (const entry of sortedEntries) {
+      const entryDate = new Date(entry.date);
+      const daysDiff = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff === streak) {
+        streak++;
+        currentDate = entryDate;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  }
 
   const getRelativeTime = (dateString: string) => {
     const entryDate = new Date(dateString);
@@ -53,96 +87,171 @@ const HomeScreen = () => {
     }
   };
 
+  const renderStatsCard = () => (
+    <AnimatedCard animation="fadeIn" delay={0} glow={true}>
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{totalWorkouts}</Text>
+          <Text style={styles.statLabel}>Total Workouts</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{currentStreak}</Text>
+          <Text style={styles.statLabel}>Day Streak</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{todayEntries.length}</Text>
+          <Text style={styles.statLabel}>Today</Text>
+        </View>
+      </View>
+    </AnimatedCard>
+  );
+
+  const renderQuickActions = () => (
+    <AnimatedCard animation="slideIn" delay={200}>
+      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <View style={styles.quickActionsContainer}>
+        <GradientButton
+          title="Add Workout"
+          onPress={() => navigation.navigate('AddEntry')}
+          icon="➕"
+          size="medium"
+          style={styles.quickActionButton}
+        />
+        <GradientButton
+          title="View Stats"
+          onPress={() => navigation.navigate('Analytics')}
+          icon="📊"
+          variant="secondary"
+          size="medium"
+          style={styles.quickActionButton}
+        />
+        <GradientButton
+          title="Achievements"
+          onPress={() => navigation.navigate('Achievements')}
+          icon="🏆"
+          variant="warning"
+          size="medium"
+          style={styles.quickActionButton}
+        />
+      </View>
+    </AnimatedCard>
+  );
+
+  const renderWeeklyProgress = () => (
+    <AnimatedCard animation="zoomIn" delay={400}>
+      <Text style={styles.sectionTitle}>Weekly Progress</Text>
+      <ProgressBar
+        progress={weeklyProgress}
+        height={12}
+        label="Workouts this week"
+        animated={true}
+        duration={1500}
+      />
+      <Text style={styles.progressText}>
+        {weeklyGoal?.currentValue || 0} of {weeklyGoal?.targetValue || 5} workouts completed
+      </Text>
+    </AnimatedCard>
+  );
+
+  const renderAchievements = () => {
+    const recentAchievements = achievements.filter(a => unlockedAchievements.includes(a.id)).slice(0, 3);
+    
+    if (recentAchievements.length === 0) return null;
+
+    return (
+      <AnimatedCard animation="bounceIn" delay={600}>
+        <View style={styles.achievementsHeader}>
+          <Text style={styles.sectionTitle}>Recent Achievements</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Achievements')}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.achievementsContainer}>
+          {recentAchievements.map((achievement) => (
+            <View key={achievement.id} style={styles.achievementItem}>
+              <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+              <View style={styles.achievementInfo}>
+                <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                <Text style={styles.achievementDescription}>{achievement.description}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </AnimatedCard>
+    );
+  };
+
+  const renderRecentEntries = () => (
+    <AnimatedCard animation="fadeIn" delay={800}>
+      <View style={styles.recentEntriesHeader}>
+        <Text style={styles.sectionTitle}>Recent Entries</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Journal')}>
+          <Text style={styles.viewAllText}>View All</Text>
+        </TouchableOpacity>
+      </View>
+      {recentEntries.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No entries yet</Text>
+          <Text style={styles.emptyStateSubtext}>Start your fitness journey!</Text>
+        </View>
+      ) : (
+        <View style={styles.entriesContainer}>
+          {recentEntries.map((entry) => (
+            <TouchableOpacity
+              key={entry.id}
+              style={styles.entryItem}
+              onPress={() => navigation.navigate('EntryDetails', { entryId: entry.id })}
+            >
+              <View style={styles.entryInfo}>
+                <Text style={styles.entryTitle}>{entry.activityName}</Text>
+                <Text style={styles.entryTime}>{getRelativeTime(entry.date)}</Text>
+              </View>
+              <Text style={styles.entryArrow}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </AnimatedCard>
+  );
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <SimpleAnimatedView animation="fadeInDown" delay={0}>
         <View style={styles.header}>
-          <Text style={styles.logo}>SPORT UNI BEST JOURNAL</Text>
-          <TouchableOpacity style={styles.lightbulbButton} onPress={() => navigation.navigate('Information')}>
-            <Image source={require('../assets/img/I.png')} />
+          <TouchableOpacity style={styles.logoContainer} onPress={() => navigation.navigate('Information')}>
+            <Text style={styles.logo}>SPORT UNI BEST JOURNAL</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Text style={styles.notificationIcon}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </SimpleAnimatedView>
 
-      {/* Main Image */}
-      <SimpleAnimatedView animation="zoomIn" delay={200}>
-        <View style={styles.imageContainer}>
-            {/* <View style={styles.placeholderImage}> */}
-              <Image source={require('../assets/img/ee38d184ddf2b28962e5e3140931df33c9d28014.png')} style={{width: '70%', height: 300}} resizeMode='cover'/>
-          {/* </View> */}
-        </View>
-      </SimpleAnimatedView>
+      {/* Stats Card */}
+      {renderStatsCard()}
 
-      {/* Date and Summary */}
-      <SimpleAnimatedView animation="fadeInUp" delay={400}>
-        <View style={styles.dateSection}>
-          <Text style={styles.dateText}>{todayString}</Text>
-          <Text style={styles.entriesText}>
-            {todayEntries.length} {todayEntries.length === 1 ? 'entry' : 'entries'} today
-          </Text>
-        </View>
-      </SimpleAnimatedView>
+      {/* Quick Actions */}
+      {renderQuickActions()}
 
-      {/* Add Entry Button */}
-      <SimpleAnimatedView animation="bounceIn" delay={600}>
-        <TouchableOpacity
-          style={styles.addEntryButton}
-          onPress={() => navigation.navigate('AddEntry')}
-        >
-          <Image source={require('../assets/img/BUTTON.png')}  />
-        </TouchableOpacity>
-      </SimpleAnimatedView>
+      {/* Weekly Progress */}
+      {renderWeeklyProgress()}
 
-      
+      {/* Achievements */}
+      {renderAchievements()}
 
-      {/* Last Entries Section */}
-      <SimpleAnimatedView animation="fadeInUp" delay={800}>
-        <View style={styles.lastEntriesSection}>
-          <View style={styles.lastEntriesHeader}>
-            <Text style={styles.lastEntriesTitle}>Last entries</Text>
-            <TouchableOpacity 
-              style={styles.viewAllButton}
-              onPress={() => navigation.navigate('Journal')}
-            >
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {recentEntries.length === 0 ? (
-            <Text style={styles.noEntriesText}>No entries....</Text>
-          ) : (
-            recentEntries.map((entry, index) => (
-              <SimpleAnimatedView 
-                key={entry.id} 
-                animation="slideInLeft" 
-                delay={1000 + (index * 100)}
-              >
-                <TouchableOpacity
-                  style={styles.entryCard}
-                  onPress={() => navigation.navigate('EntryDetails', { entryId: entry.id })}
-                >
-                  <View style={styles.entryImageContainer}>
-                    {entry.photoUri ? (
-                      <Image source={{ uri: entry.photoUri }} style={styles.entryImage} />
-                    ) : (
-                      <View style={styles.entryPlaceholder}>
-                        <Text style={styles.entryPlaceholderEmoji}>👤</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.entryContent}>
-                    <Text style={styles.entryTitle}>{entry.activityName}</Text>
-                    <Text style={styles.entryTime}>{getRelativeTime(entry.date)}</Text>
-                  </View>
-                  <Image source={require('../assets/img/Group10.png')} style={{width: 40, height: 40}}/>
-                </TouchableOpacity>
-              </SimpleAnimatedView>
-            ))
-          )}
-        </View>
-      </SimpleAnimatedView>
-      {/* <View style={{marginBottom: 100}}/> */}
+      {/* Recent Entries */}
+      {renderRecentEntries()}
     </ScrollView>
   );
 };
@@ -164,162 +273,163 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  lightbulbButton: {
-    padding: 8,
-  },
-  emojiIcon: {
-    fontSize: 24,
-  },
-  placeholderEmoji: {
-    fontSize: 80,
-  },
-  addEntryEmoji: {
-    fontSize: 24,
-    marginRight: 8,
-  },
-  decorativeEmoji: {
-    fontSize: 20,
-  },
-  entryPlaceholderEmoji: {
-    fontSize: 20,
-  },
-  chevronEmoji: {
-    fontSize: 16,
-  },
-  imageContainer: {
-    // height: 300,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  placeholderImage: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  dateText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  entriesText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
-  addEntryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // backgroundColor: Colors.primary,
-    marginHorizontal: 20,
-    // paddingVertical: 16,
-    // borderRadius: 12,
-    marginBottom: 40,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  addEntryText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.background,
-    marginLeft: 8,
+    color: Colors.text,
+    letterSpacing: 1,
   },
-  decorativeElements: {
+  notificationButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  notificationIcon: {
+    fontSize: 24,
+  },
+  notificationBadge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
+    top: 4,
+    right: 4,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  decorativeCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
-    position: 'absolute',
+  notificationBadgeText: {
+    color: Colors.text,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  lastEntriesSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 20,
   },
-  lastEntriesHeader: {
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textAccent,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.border,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+  },
+  progressText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  achievementsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  lastEntriesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
+  achievementsContainer: {
+    gap: 12,
   },
-  viewAllButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+  achievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  achievementIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  achievementInfo: {
+    flex: 1,
+  },
+  achievementTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  achievementDescription: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  recentEntriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   viewAllText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: Colors.textAccent,
     fontWeight: '600',
   },
-  noEntriesText: {
-    fontSize: 16,
-    color: Colors.textMuted,
-    fontStyle: 'italic',
-  },
-  entryCard: {
-    flexDirection: 'row',
+  emptyState: {
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 12,
-    borderRadius: 8,
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: Colors.textSecondary,
     marginBottom: 8,
   },
-  entryImageContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginRight: 12,
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: Colors.textMuted,
   },
-  entryImage: {
-    width: '100%',
-    height: '100%',
+  entriesContainer: {
+    gap: 12,
   },
-  entryPlaceholder: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
+  entryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: 12,
   },
-  entryContent: {
+  entryInfo: {
     flex: 1,
   },
   entryTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   entryTime: {
     fontSize: 14,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
+  },
+  entryArrow: {
+    fontSize: 18,
+    color: Colors.textAccent,
   },
 });
 

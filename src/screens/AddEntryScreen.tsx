@@ -38,7 +38,7 @@ const AddEntryScreen = () => {
   const handleAddPhoto = () => {
     const options = {
       mediaType: 'photo' as MediaType,
-      quality: 0.8,
+      quality: 0.8 as any,
       maxWidth: 1000,
       maxHeight: 1000,
     };
@@ -174,7 +174,6 @@ const AddEntryScreen = () => {
               <DateTimePicker
                 value={selectedTime}
                 mode="time"
-                backgroundColor={Colors.primary}
                 is24Hour={true}
                 display="default"
                 onChange={handleTimeChange}

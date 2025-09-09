@@ -11,6 +11,10 @@ import JournalScreen from '../screens/JournalScreen';
 import StatsScreen from '../screens/StatsScreen';
 import AddEntryScreen from '../screens/AddEntryScreen';
 import EntryDetailsScreen from '../screens/EntryDetailsScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
+import GoalsScreen from '../screens/GoalsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -33,7 +37,7 @@ const MainTabs = () => {
           }
 
           return (
-            <Image source={emoji} style={{width: 20, height: 20}} resizeMode='cover'/>
+            <Image source={emoji} style={{width: 20, height: 20}} />
           );
         },
         tabBarActiveTintColor: '#00FF88',
@@ -110,6 +114,26 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="EntryDetails" 
           component={EntryDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="Achievements" 
+          component={AchievementsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="Goals" 
+          component={GoalsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="Notifications" 
+          component={NotificationsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="Analytics" 
+          component={AnalyticsScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
